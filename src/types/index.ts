@@ -84,6 +84,12 @@ export interface Config {
   enableClipboardPaste: boolean;
 }
 
+export interface ServerConfig {
+  port: number;
+  hostname: string;
+  corsAllowedOrigins: string[];
+}
+
 export interface UploadStats {
   totalImages: number;
   totalSize: number;
@@ -109,4 +115,12 @@ export interface ProcessedImage {
     width: number;
     height: number;
   } | null;
+}
+
+export interface CorsConfig {
+  allowedOrigins: string[];
+  allowedMethods: string[];
+  allowedHeaders: string[];
+  allowCredentials: boolean;
+  maxAge: number;
 }

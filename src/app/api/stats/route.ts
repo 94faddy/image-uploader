@@ -3,8 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { addCorsHeaders, handlePreflight } from '@/lib/cors'
 
 export const runtime = 'nodejs'
+
+// Handle OPTIONS preflight request
+export async function OPTIONS(request: NextRequest) {
+  return handlePreflight(request)
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,7 +49,7 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       success: true,
       stats: {
         totalImages,
@@ -56,11 +62,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    return addCorsHeaders(successResponse, request)
+
   } catch (error) {
     console.error('Error fetching stats:', error)
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }
     )
+    return addCorsHeaders(errorResponse, request)
   }
 }

@@ -14,26 +14,41 @@ import {
   calculateExpiryDate,
   generateRandomString
 } from '@/lib/utils'
+import { addCorsHeaders, handlePreflight, validateOrigin } from '@/lib/cors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-// Disable body parser size limit
 export const maxDuration = 60
+
+// Handle OPTIONS preflight request
+export async function OPTIONS(request: NextRequest) {
+  return handlePreflight(request)
+}
 
 export async function POST(request: NextRequest) {
   try {
     const config = getConfig()
     const clientIp = getClientIp(request.headers)
 
+    // Validate origin for security
+    const originCheck = validateOrigin(request)
+    if (!originCheck.valid) {
+      const errorResponse = NextResponse.json(
+        { success: false, message: 'Origin not allowed' },
+        { status: 403 }
+      )
+      return addCorsHeaders(errorResponse, request)
+    }
+
     // Rate limiting check
     if (config.enableRateLimit) {
       const rateLimitResult = await checkRateLimit(clientIp, config)
       if (!rateLimitResult.allowed) {
-        return NextResponse.json(
+        const errorResponse = NextResponse.json(
           { success: false, message: 'Rate limit exceeded. Please try again later.' },
           { status: 429 }
         )
+        return addCorsHeaders(errorResponse, request)
       }
     }
 
@@ -42,10 +57,11 @@ export async function POST(request: NextRequest) {
     const files = formData.getAll('file') as File[]
 
     if (files.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'No files uploaded' },
         { status: 400 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     const uploadedImages = []
@@ -152,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (uploadedImages.length === 0) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { 
           success: false, 
           message: 'No images were uploaded successfully',
@@ -160,24 +176,28 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       success: true,
       message: `Successfully uploaded ${uploadedImages.length} image(s)`,
       images: uploadedImages,
       errors: errors.length > 0 ? errors : undefined,
     })
+    
+    return addCorsHeaders(successResponse, request)
 
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { 
         success: false, 
         message: error instanceof Error ? error.message : 'Internal server error' 
       },
       { status: 500 }
     )
+    return addCorsHeaders(errorResponse, request)
   }
 }
 
@@ -194,7 +214,6 @@ async function checkRateLimit(
     })
 
     if (!rateLimit) {
-      // Create new rate limit record
       await prisma.rateLimit.create({
         data: {
           ipAddress: ip,
@@ -205,9 +224,7 @@ async function checkRateLimit(
       return { allowed: true }
     }
 
-    // Check if window has expired
     if (rateLimit.windowStart < windowStart) {
-      // Reset window
       await prisma.rateLimit.update({
         where: { ipAddress: ip },
         data: {
@@ -218,12 +235,10 @@ async function checkRateLimit(
       return { allowed: true }
     }
 
-    // Check if limit exceeded
     if (rateLimit.requestCount >= config.rateLimitMaxRequests) {
       return { allowed: false }
     }
 
-    // Increment request count
     await prisma.rateLimit.update({
       where: { ipAddress: ip },
       data: {
@@ -234,7 +249,6 @@ async function checkRateLimit(
     return { allowed: true }
   } catch (error) {
     console.error('Rate limit check error:', error)
-    // Allow request if rate limiting fails
     return { allowed: true }
   }
 }

@@ -10,11 +10,20 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Get server configuration
+export function getServerConfig() {
+  return {
+    port: parseInt(process.env.PORT || '1344'),
+    hostname: process.env.HOSTNAME || '0.0.0.0',
+    corsAllowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:1344').split(',').map(o => o.trim()),
+  }
+}
+
 // Get config from environment variables
 export function getConfig(): Config {
   return {
     appName: process.env.NEXT_PUBLIC_APP_NAME || 'ImageHost',
-    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:1344',
     appDescription: process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Free Image Hosting',
     maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB || '10'),
     allowedExtensions: (process.env.ALLOWED_EXTENSIONS || '.jpg,.jpeg,.png,.gif,.webp').split(','),
@@ -76,16 +85,24 @@ export function isValidFileSize(size: number, maxSizeMB: number): boolean {
   return size <= maxSizeMB * 1024 * 1024
 }
 
-// Generate image links
-export function generateImageLinks(baseUrl: string, imageId: string, fileName: string): ImageLinks {
-  const baseName = fileName.split('.')[0]
-  const ext = fileName.split('.').pop()
+// Generate image links using app URL from config
+export function generateImageLinks(imageId: string, fileName: string, paths?: {
+  originalPath?: string;
+  thumbnailPath?: string | null;
+  mediumPath?: string | null;
+}): ImageLinks {
+  const config = getConfig()
+  const baseUrl = config.appUrl
+  
+  const originalPath = paths?.originalPath || fileName
+  const thumbnailPath = paths?.thumbnailPath || originalPath
+  const mediumPath = paths?.mediumPath || originalPath
   
   return {
     viewer: `${baseUrl}/view/${imageId}`,
-    direct: `${baseUrl}/uploads/${fileName}`,
-    thumbnail: `${baseUrl}/uploads/${baseName}_thumb.${ext}`,
-    medium: `${baseUrl}/uploads/${baseName}_medium.${ext}`,
+    direct: `${baseUrl}/uploads/${originalPath}`,
+    thumbnail: `${baseUrl}/uploads/${thumbnailPath}`,
+    medium: `${baseUrl}/uploads/${mediumPath}`,
   }
 }
 
@@ -137,9 +154,9 @@ export function sanitizeFileName(fileName: string): string {
 // Get client IP address from headers
 export function getClientIp(headers: Headers): string {
   return (
+    headers.get('cf-connecting-ip') || // Cloudflare
     headers.get('x-forwarded-for')?.split(',')[0].trim() ||
     headers.get('x-real-ip') ||
-    headers.get('cf-connecting-ip') ||
     'unknown'
   )
 }
@@ -174,4 +191,12 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       document.body.removeChild(textArea)
     }
   }
+}
+
+// Get base URL for API calls (client-side)
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:1344'
 }

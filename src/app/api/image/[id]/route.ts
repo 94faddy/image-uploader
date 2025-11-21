@@ -6,8 +6,14 @@ import path from 'path'
 import { prisma } from '@/lib/db'
 import { deleteImageFiles } from '@/lib/imageProcessor'
 import { getConfig } from '@/lib/utils'
+import { addCorsHeaders, handlePreflight } from '@/lib/cors'
 
 export const runtime = 'nodejs'
+
+// Handle OPTIONS preflight request
+export async function OPTIONS(request: NextRequest) {
+  return handlePreflight(request)
+}
 
 // GET - ดึงข้อมูลรูปภาพ
 export async function GET(
@@ -22,18 +28,20 @@ export async function GET(
     })
 
     if (!image) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'Image not found' },
         { status: 404 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     // Check if image has expired
     if (image.expiresAt && image.expiresAt < new Date()) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'Image has expired' },
         { status: 410 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     // Increment view count
@@ -57,7 +65,7 @@ export async function GET(
     const config = getConfig()
     const baseUrl = config.appUrl
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       success: true,
       image: {
         id: image.id,
@@ -88,12 +96,15 @@ export async function GET(
       },
     })
 
+    return addCorsHeaders(successResponse, request)
+
   } catch (error) {
     console.error('Error fetching image:', error)
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }
     )
+    return addCorsHeaders(errorResponse, request)
   }
 }
 
@@ -108,10 +119,11 @@ export async function DELETE(
     const deleteToken = searchParams.get('token')
 
     if (!deleteToken) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'Delete token is required' },
         { status: 400 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     const image = await prisma.image.findUnique({
@@ -119,18 +131,20 @@ export async function DELETE(
     })
 
     if (!image) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'Image not found' },
         { status: 404 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     // Verify delete token
     if (image.deleteToken !== deleteToken) {
-      return NextResponse.json(
+      const errorResponse = NextResponse.json(
         { success: false, message: 'Invalid delete token' },
         { status: 403 }
       )
+      return addCorsHeaders(errorResponse, request)
     }
 
     // Delete image files
@@ -147,16 +161,19 @@ export async function DELETE(
       where: { id },
     })
 
-    return NextResponse.json({
+    const successResponse = NextResponse.json({
       success: true,
       message: 'Image deleted successfully',
     })
 
+    return addCorsHeaders(successResponse, request)
+
   } catch (error) {
     console.error('Error deleting image:', error)
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }
     )
+    return addCorsHeaders(errorResponse, request)
   }
 }
