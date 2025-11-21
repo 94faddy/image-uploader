@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import path from 'path'
 import fs from 'fs/promises'
 import { ProcessedImage } from '@/types'
-import { getConfig, generateRandomString } from './utils'
+import { getConfig, generateRandomString, sanitizeFileName } from './utils'
 
 interface ProcessOptions {
   buffer: Buffer
@@ -23,17 +23,35 @@ export async function processImage(options: ProcessOptions): Promise<ProcessedIm
   const originalWidth = metadata.width || 0
   const originalHeight = metadata.height || 0
   
-  // Generate unique filename
+  // ============================================
+  // สร้างชื่อไฟล์ใหม่ที่ปลอดภัย (ไม่ใช้ชื่อเดิม)
+  // ============================================
   const timestamp = Date.now()
   const randomStr = generateRandomString(8)
-  const ext = path.extname(originalName).toLowerCase() || '.jpg'
+  
+  // Get extension from original name or detect from buffer
+  let ext = path.extname(originalName).toLowerCase()
+  if (!ext || ext === '.') {
+    // Detect from metadata
+    const formatMap: Record<string, string> = {
+      'jpeg': '.jpg',
+      'png': '.png',
+      'gif': '.gif',
+      'webp': '.webp',
+      'svg': '.svg',
+      'bmp': '.bmp',
+    }
+    ext = formatMap[metadata.format || 'jpeg'] || '.jpg'
+  }
+  
+  // สร้างชื่อไฟล์ใหม่ที่เป็น ASCII เท่านั้น
   const baseName = `${timestamp}_${randomStr}`
   const originalFileName = `${baseName}${ext}`
   
   // Ensure upload directory exists
   await fs.mkdir(uploadDir, { recursive: true })
   
-  // Save original image (ไม่แปลงหรือปรับขนาด - รักษาขนาดจริง)
+  // Save original image
   const originalPath = path.join(uploadDir, originalFileName)
   await fs.writeFile(originalPath, buffer)
   
@@ -47,7 +65,7 @@ export async function processImage(options: ProcessOptions): Promise<ProcessedIm
     medium: null,
   }
   
-  // Create thumbnail (รักษา aspect ratio)
+  // Create thumbnail
   if (originalWidth > config.thumbnailWidth || originalHeight > config.thumbnailHeight) {
     const thumbnailFileName = `${baseName}_thumb${ext}`
     const thumbnailPath = path.join(uploadDir, thumbnailFileName)
@@ -68,7 +86,6 @@ export async function processImage(options: ProcessOptions): Promise<ProcessedIm
       height: thumbMeta.height || config.thumbnailHeight,
     }
   } else {
-    // ถ้ารูปเล็กกว่า thumbnail size ใช้รูปเดิม
     result.thumbnail = {
       path: originalFileName,
       width: originalWidth,
@@ -76,7 +93,7 @@ export async function processImage(options: ProcessOptions): Promise<ProcessedIm
     }
   }
   
-  // Create medium size (รักษา aspect ratio)
+  // Create medium size
   if (originalWidth > config.mediumWidth || originalHeight > config.mediumHeight) {
     const mediumFileName = `${baseName}_medium${ext}`
     const mediumPath = path.join(uploadDir, mediumFileName)
@@ -97,7 +114,6 @@ export async function processImage(options: ProcessOptions): Promise<ProcessedIm
       height: mediumMeta.height || config.mediumHeight,
     }
   } else {
-    // ถ้ารูปเล็กกว่า medium size ใช้รูปเดิม
     result.medium = {
       path: originalFileName,
       width: originalWidth,

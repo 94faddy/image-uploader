@@ -143,12 +143,46 @@ export function getExtensionFromMime(mimeType: string): string {
   return mimeToExt[mimeType] || 'jpg'
 }
 
-// Sanitize filename
+// ============================================
+// แก้ไขฟังก์ชัน sanitizeFileName ให้ดีขึ้น
+// ============================================
+
+// Convert Thai digits to Arabic digits
+function convertThaiDigits(str: string): string {
+  const thaiDigits = '๐๑๒๓๔๕๖๗๘๙'
+  const arabicDigits = '0123456789'
+  
+  let result = str
+  for (let i = 0; i < thaiDigits.length; i++) {
+    result = result.replace(new RegExp(thaiDigits[i], 'g'), arabicDigits[i])
+  }
+  return result
+}
+
+// Sanitize filename - remove all non-ASCII characters
 export function sanitizeFileName(fileName: string): string {
-  return fileName
-    .replace(/[^a-zA-Z0-9.-]/g, '_')
-    .replace(/_+/g, '_')
-    .substring(0, 100)
+  // Get extension
+  const lastDotIndex = fileName.lastIndexOf('.')
+  const ext = lastDotIndex !== -1 ? fileName.slice(lastDotIndex).toLowerCase() : ''
+  const nameWithoutExt = lastDotIndex !== -1 ? fileName.slice(0, lastDotIndex) : fileName
+  
+  // Convert Thai digits first
+  let sanitized = convertThaiDigits(nameWithoutExt)
+  
+  // Remove all non-ASCII characters, keep only alphanumeric, dash, underscore
+  sanitized = sanitized
+    .replace(/[^\x00-\x7F]/g, '') // Remove non-ASCII
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace special chars with underscore
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_+|_+$/g, '') // Trim underscores from start/end
+    .substring(0, 50) // Limit length
+  
+  // If filename becomes empty after sanitization, generate random name
+  if (!sanitized || sanitized.length === 0) {
+    sanitized = generateRandomString(12)
+  }
+  
+  return sanitized + ext
 }
 
 // Get client IP address from headers
