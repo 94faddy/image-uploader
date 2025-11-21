@@ -1,0 +1,80 @@
+// prisma/schema.prisma
+// Database schema for Image Uploader
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ตาราง Image เก็บข้อมูลรูปภาพ
+model Image {
+  id            String   @id @default(uuid())
+  originalName  String   @map("original_name")
+  fileName      String   @unique @map("file_name")
+  mimeType      String   @map("mime_type")
+  size          Int      // ขนาดไฟล์ (bytes)
+  width         Int      // ความกว้างรูปภาพ (pixels)
+  height        Int      // ความสูงรูปภาพ (pixels)
+  
+  // Paths สำหรับรูปภาพขนาดต่างๆ
+  originalPath  String   @map("original_path")
+  thumbnailPath String?  @map("thumbnail_path")
+  mediumPath    String?  @map("medium_path")
+  
+  // ขนาดของรูปภาพแต่ละ version
+  thumbnailWidth  Int?   @map("thumbnail_width")
+  thumbnailHeight Int?   @map("thumbnail_height")
+  mediumWidth     Int?   @map("medium_width")
+  mediumHeight    Int?   @map("medium_height")
+  
+  // Metadata
+  deleteToken   String   @unique @map("delete_token")
+  viewCount     Int      @default(0) @map("view_count")
+  downloadCount Int      @default(0) @map("download_count")
+  
+  // IP Address (สำหรับ rate limiting)
+  uploaderIp    String?  @map("uploader_ip")
+  
+  // Timestamps
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  expiresAt     DateTime? @map("expires_at")
+  
+  // Indexes
+  @@index([createdAt])
+  @@index([uploaderIp])
+  @@map("images")
+}
+
+// ตาราง Upload Stats สำหรับสถิติ
+model UploadStats {
+  id              String   @id @default(uuid())
+  date            DateTime @db.Date @unique
+  totalUploads    Int      @default(0) @map("total_uploads")
+  totalSize       BigInt   @default(0) @map("total_size")
+  totalViews      Int      @default(0) @map("total_views")
+  totalDownloads  Int      @default(0) @map("total_downloads")
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  @@map("upload_stats")
+}
+
+// ตาราง Rate Limit สำหรับควบคุมการ upload
+model RateLimit {
+  id          String   @id @default(uuid())
+  ipAddress   String   @unique @map("ip_address")
+  requestCount Int     @default(0) @map("request_count")
+  windowStart DateTime @map("window_start")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@index([ipAddress])
+  @@map("rate_limits")
+}
