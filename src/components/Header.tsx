@@ -15,7 +15,7 @@ interface HeaderProps {
   appName?: string
 }
 
-export default function Header({ appName = 'ImageHost Pro' }: HeaderProps) {
+export default function Header({ appName = 'Pix9 Image Pro' }: HeaderProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   return (

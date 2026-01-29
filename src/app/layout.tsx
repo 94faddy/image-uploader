@@ -6,12 +6,12 @@ import { Toaster } from 'sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME || 'ImageHost Pro',
+  title: process.env.NEXT_PUBLIC_APP_NAME || 'Pix9 Image Pro',
   description: process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Free Premium Image Hosting Service',
   keywords: ['image hosting', 'free image upload', 'photo sharing', 'image url'],
-  authors: [{ name: 'ImageHost Pro' }],
+  authors: [{ name: 'Pix9 Image Pro' }],
   openGraph: {
-    title: process.env.NEXT_PUBLIC_APP_NAME || 'ImageHost Pro',
+    title: process.env.NEXT_PUBLIC_APP_NAME || 'Pix9 Image Pro',
     description: process.env.NEXT_PUBLIC_APP_DESCRIPTION || 'Free Premium Image Hosting Service',
     type: 'website',
   },
